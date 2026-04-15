@@ -3,13 +3,34 @@ This module provides utilities for database interactions and data loading from w
 It includes functions to create a database engine, execute SQL queries, and read CSV files from the web.
 """
 
+import logging
+from pathlib import Path
+
 import pandas as pd
 from sqlalchemy import create_engine, text
-import logging
 
 # Set up basic logging configuration
 logger = logging.getLogger('data_ingestion')
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+
+def _resolve_db_path(db_path):
+    """
+    Resolve relative SQLite database URLs against this module's directory.
+    """
+    sqlite_prefix = "sqlite:///"
+
+    if not db_path.startswith(sqlite_prefix):
+        return db_path
+
+    raw_path = db_path[len(sqlite_prefix):]
+    path_obj = Path(raw_path)
+
+    if path_obj.is_absolute():
+        return db_path
+
+    resolved_path = (Path(__file__).resolve().parent / path_obj).resolve()
+    return f"{sqlite_prefix}{resolved_path}"
 
 def create_db_engine(db_path):
     """
@@ -29,7 +50,8 @@ def create_db_engine(db_path):
     >>> engine = create_db_engine('sqlite:///my_database.db')
     """
     try:
-        engine = create_engine(db_path)
+        resolved_db_path = _resolve_db_path(db_path)
+        engine = create_engine(resolved_db_path)
         # Test connection
         with engine.connect() as conn:
             pass
